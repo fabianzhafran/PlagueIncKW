@@ -14,11 +14,10 @@ namespace Test
             string[] inputLines = { };
             string[] populationLines = { };
             int cityLength = 0;
-            int visitedCities = 0;
             string startingCity = "";
             //int amtOfCityConnected;
             List<string> result = new List<string>();
-            Dictionary<string, int> cityPopulationList = new Dictionary<string, int>();
+            Dictionary<string, int> cityPopulationList = new Dictionary<string, int>(); 
             Dictionary<string, Dictionary<string, float>> connectedCityList = new Dictionary<string, Dictionary<string, float>>();
             Dictionary<string, bool> visited = new Dictionary<string, bool>();
 

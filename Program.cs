@@ -6,8 +6,8 @@ namespace Test
 {
     class Program
     {
-        static readonly string inputFile = @"F:\Docs\Kuliah\Stima\Tubes2Test\Test\InputFile.txt";
-        static readonly string populationFile = @"F:\Docs\Kuliah\Stima\Tubes2Test\Test\PopulationFile.txt";
+        static readonly string inputFile = Path.Combine(Environment.CurrentDirectory, "InputFile.txt");
+        static readonly string populationFile = Path.Combine(Environment.CurrentDirectory, "PopulationFile.txt");
 
         static void Main(string[] args)
         {
@@ -21,6 +21,7 @@ namespace Test
             Dictionary<string, int> cityPopulationList = new Dictionary<string, int>();
             Dictionary<string, Dictionary<string, float>> connectedCityList = new Dictionary<string, Dictionary<string, float>>();
             Dictionary<string, bool> visited = new Dictionary<string, bool>();
+            Dictionary<string, int> dayCityGotInfected = new Dictionary<string, int>();
 
             if (File.Exists(inputFile))
             {
@@ -96,8 +97,12 @@ namespace Test
             }
 
             // TEST BFS
-            BFS("A", visited, connectedCityList, result);
             Console.WriteLine("~~~~~~~~~~~~BFS~~~~~~~~~~~~");
+            int inputDays;
+            Console.Write("Input jumlah hari total: ");
+            inputDays = Convert.ToInt32(Console.ReadLine());
+            BFS("A", visited, connectedCityList, cityPopulationList, result, inputDays);
+            Console.WriteLine("~~~~~~~~~~~~HASIL BFS~~~~~~~~~~~~");
             Console.Write("[");
             foreach (string cityResult in result)
             {
@@ -129,10 +134,45 @@ namespace Test
             }
         }
 
-        public static void BFS(string startingCity, Dictionary<string, bool> visited, Dictionary<string, Dictionary<string, float>> connectedCityList, List<string> result)
+        public static float infectedPopulationInCity(string plaguedCity, Dictionary<string, int> cityPopulationList, Dictionary<string, int> dayCityGotInfected, int totalDays) {
+            float T_city = dayCityGotInfected[plaguedCity];
+            Console.WriteLine("T({0}) = {1}", plaguedCity, T_city);
+            float t_city = totalDays - T_city;
+            Console.WriteLine("t({0}) = {1}", plaguedCity, t_city);
+            float cityPopulation = cityPopulationList[plaguedCity];
+            Console.WriteLine("P({0}) = {1}", plaguedCity, cityPopulation);
+            // Console.WriteLine("{0}", (float)Math.Exp(0.25 * t_city));
+
+            return (cityPopulation / (1 + ((cityPopulation - 1) / (float)Math.Exp(0.25 * t_city))));
+        }
+
+        public static int whenCityGotInfected(string plaguedCity, string adjacentCity, Dictionary<string, int> cityPopulationList, Dictionary<string, int> dayCityGotInfected, Dictionary<string, Dictionary<string, float>> connectedCityList, int totalDays) {
+            float T_city = dayCityGotInfected[plaguedCity];
+            float cityPopulation = cityPopulationList[plaguedCity];
+            float travelChance = connectedCityList[plaguedCity][adjacentCity];
+            return (int)Math.Ceiling(Math.Log((cityPopulation - 1) / (travelChance * cityPopulation - 1)) * 4);
+        }
+
+        public static bool isSpread(string plaguedCity, string adjacentCity, Dictionary<string, Dictionary<string, float>> connectedCityList, Dictionary<string, int> cityPopulationList, Dictionary<string, int> dayCityGotInfected, int totalDays) {
+            Dictionary<string, float> adjacentChance = connectedCityList[plaguedCity];
+            float travelChance = adjacentChance[adjacentCity];
+            Console.WriteLine("From City {0}", plaguedCity);
+            Console.WriteLine("To City {0}", adjacentCity);
+            float infectedPopulation = infectedPopulationInCity(plaguedCity, cityPopulationList, dayCityGotInfected, totalDays);
+            float spreadChance = infectedPopulation * travelChance;
+            Console.WriteLine("Tr({0}, {1}) = {2}", plaguedCity, adjacentCity, travelChance);
+            Console.WriteLine("I({0}) = {1}", plaguedCity, infectedPopulation);
+            Console.WriteLine("S({0}, {1}) = {2}", plaguedCity, adjacentCity, spreadChance);
+
+            return (spreadChance > 1);
+        }
+
+        public static void BFS(string startingCity, Dictionary<string, bool> visited, Dictionary<string, Dictionary<string, float>> connectedCityList, Dictionary<string, int> cityPopulationList, List<string> result, int totalDays)
         {
             Queue<string> bfsQueue = new Queue<string>();
+            Dictionary<string, int> dayCityGotInfected = new Dictionary<string, int>();
             bfsQueue.Enqueue(startingCity);
+            dayCityGotInfected[startingCity] = 0;
             result.Add(startingCity);
             while (bfsQueue.Count > 0)
             {
@@ -141,14 +181,45 @@ namespace Test
                 bfsQueue.Dequeue();
                 foreach (KeyValuePair<string, float> adjacentCity in connectedCityList[plaguedCity])
                 {
-                    if (!visited[adjacentCity.Key])
+                    if ((!visited[adjacentCity.Key]) && (isSpread(plaguedCity, adjacentCity.Key, connectedCityList, cityPopulationList, dayCityGotInfected, totalDays)))
                     {
                         bfsQueue.Enqueue(adjacentCity.Key);
                         visited[adjacentCity.Key] = true;
                         result.Add(adjacentCity.Key);
+                        int dayAdjacentCityInfected = whenCityGotInfected(plaguedCity, adjacentCity.Key, cityPopulationList, dayCityGotInfected, connectedCityList, totalDays) + 1;
+                        dayCityGotInfected.Add(adjacentCity.Key, dayAdjacentCityInfected + dayCityGotInfected[plaguedCity]);
+
+                        Console.WriteLine("City {0} got infected from city {1}!", adjacentCity.Key, plaguedCity);
                     }
                 }
             }
+
+            foreach (KeyValuePair<string, int> city in dayCityGotInfected)
+            {
+                Console.WriteLine("City {0} Infected Since Day: {1}", city.Key, city.Value);
+            }
         }
+
+        // public static void BFS(string startingCity, Dictionary<string, bool> visited, Dictionary<string, Dictionary<string, float>> connectedCityList, List<string> result)
+        // {
+        //     Queue<string> bfsQueue = new Queue<string>();
+        //     bfsQueue.Enqueue(startingCity);
+        //     result.Add(startingCity);
+        //     while (bfsQueue.Count > 0)
+        //     {
+        //         string plaguedCity = bfsQueue.Peek();
+        //         visited[plaguedCity] = true;
+        //         bfsQueue.Dequeue();
+        //         foreach (KeyValuePair<string, float> adjacentCity in connectedCityList[plaguedCity])
+        //         {
+        //             if (!visited[adjacentCity.Key])
+        //             {
+        //                 bfsQueue.Enqueue(adjacentCity.Key);
+        //                 visited[adjacentCity.Key] = true;
+        //                 result.Add(adjacentCity.Key);
+        //             }
+        //         }
+        //     }
+        // }
     }
 }
